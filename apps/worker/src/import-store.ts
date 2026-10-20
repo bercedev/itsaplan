@@ -717,8 +717,16 @@ export async function createIssueLink(
   }
 }
 
+// drizzle wraps the driver error in a DrizzleQueryError and keeps the Postgres
+// error in `cause`, so the code is looked for down the cause chain (the api's
+// pgErrorCode does the same).
 function isUniqueViolation(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && (err as { code?: string }).code === '23505';
+  let current: unknown = err;
+  for (let depth = 0; current && typeof current === 'object' && depth < 5; depth++) {
+    if ((current as { code?: unknown }).code === '23505') return true;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
 }
 
 // Only a user who already belongs to the project is matched: an import never
